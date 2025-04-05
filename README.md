@@ -3,7 +3,7 @@
 ## Organização de Pastas
 
 ```plaintext
-Proj.ML/
+ProjetoML/
 ├── AC/
 │   ├── api_iris.R
 │   └── modelo_classificacao_iris.rds
