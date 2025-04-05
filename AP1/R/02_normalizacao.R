@@ -23,13 +23,13 @@ ggplot(hr_data, aes(x = attrition)) +
 
 # Shapiro-Wilk
 set.seed(123)
-sample_income <- sample(hr_data$monthly_income, 5000)
+sample_income <- sample(hr_data$monthly_income, 500)
 shapiro.test(sample_income)
 
-# Kolmogorov-Smirnov
-ks.test(
-  hr_data$monthly_income,
-  "pnorm",
-  mean = mean(hr_data$monthly_income),
-  sd = sd(hr_data$monthly_income)
-)
+# # Kolmogorov-Smirnov
+# ks.test(
+#   hr_data$monthly_income,
+#   "pnorm",
+#   mean = mean(hr_data$monthly_income),
+#   sd = sd(hr_data$monthly_income)
+# )

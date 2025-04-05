@@ -3,7 +3,7 @@ library(tidyverse)
 library(janitor)
 
 # Load dataset
-hr_data <- read_csv("data/WA_Fn-UseC_-HR-Employee-Attrition.csv")
+hr_data <- read_csv("AP1/data/WA_Fn-UseC_-HR-Employee-Attrition.csv")
 
 # Limpando nome de colunas
 hr_data <- hr_data |>
