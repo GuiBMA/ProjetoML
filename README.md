@@ -39,6 +39,66 @@ Este projeto analisa o conjunto de dados de RH da IBM para prever a renda e a ro
 - Regressão logística
 - Deploy de API REST utilizando plumber
 
+Segue a documentação da API incorporada ao `README.md`:
+
+
+#### 📡 Documentação da API
+
+A aplicação disponibiliza uma API REST implementada com `plumber` para previsão de renda mensal e classificação de rotatividade de funcionários com base no dataset de RH da IBM.
+
+##### 🔧 Endpoints
+
+###### `GET /prediction`
+
+**Descrição:** Realiza a predição da renda mensal com base nos anos totais de trabalho usando regressão linear.
+
+**Parâmetros:**
+
+| Nome           | Tipo     | Descrição                     | Obrigatório |
+|----------------|----------|-------------------------------|-------------|
+| `years_worked` | numérico | Total de anos trabalhados     | Sim         |
+
+**Exemplo de requisição:**
+
+```
+GET /prediction?years_worked=10
+```
+
+**Resposta:**
+
+```json
+{
+  "predicted_monthly_income": 5632.78
+}
+```
+
+---
+
+###### `GET /classification`
+
+**Descrição:** Classifica se o funcionário tende a sair da empresa com base na renda mensal usando regressão logística.
+
+**Parâmetros:**
+
+| Nome     | Tipo     | Descrição              | Obrigatório |
+|----------|----------|------------------------|-------------|
+| `income` | numérico | Renda mensal (em USD)  | Sim         |
+
+**Exemplo de requisição:**
+
+```
+GET /classification?income=4500
+```
+
+**Resposta:**
+
+```json
+{
+  "predicted_attrition": "No",
+  "probability": 0.327
+}
+```
+
 #### 🚀 Como Executar a API
 1. Clone o repositório
 2. Instale os pacotes R necessários
