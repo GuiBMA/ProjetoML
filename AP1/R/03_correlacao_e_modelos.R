@@ -20,9 +20,20 @@ predictions <- predict(lm_model, hr_data)
 
 # Métricas
 library(Metrics)
-cat("R²:", summary(lm_model)$r.squared, "\n")
-cat("MAE:", mae(hr_data$monthly_income, predictions), "\n")
-cat("RMSE:", rmse(hr_data$monthly_income, predictions), "\n")
+metrics_lm <- data.frame(
+  R2 = summary(lm_model)$r.squared,
+  MAE = mae(hr_data$monthly_income, predictions),
+  RMSE = rmse(hr_data$monthly_income, predictions),
+  MAPE = mape(hr_data$monthly_income, predictions),
+  AIC = AIC(lm_model),
+  BIC = BIC(lm_model)
+)
+
+# Criar diretório se não existir
+dir.create("AP1/outputs/metrics", recursive = TRUE, showWarnings = FALSE)
+
+# Salvar métricas
+write.csv(metrics_lm, "AP1/outputs/metrics/metricas_modelo_linear.csv", row.names = FALSE)
 
 # Regressão Logistica
 hr_data <- hr_data |>
@@ -41,3 +52,19 @@ table(Predicted = predicted_class, Actual = hr_data$attrition)
 
 # Accurácia
 mean(predicted_class == hr_data$attrition)
+
+# Métricas do modelo logístico
+metrics_log <- data.frame(
+  AIC = AIC(log_model),
+  BIC = BIC(log_model),
+  Deviance = deviance(log_model),
+  Null_Deviance = log_model$null.deviance,
+  Accuracy = mean(predicted_class == hr_data$attrition)
+)
+
+# Salvar métricas do modelo logístico
+write.csv(metrics_log, "AP1/outputs/metrics/metricas_modelo_logistico.csv", row.names = FALSE)
+
+# Matriz de Confusão
+conf_matrix <- as.data.frame.matrix(table(Predicted = predicted_class, Actual = hr_data$attrition))
+write.csv(conf_matrix, "AP1/outputs/metrics/matriz_confusao.csv", row.names = TRUE)
