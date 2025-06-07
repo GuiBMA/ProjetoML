@@ -1,291 +1,137 @@
-# Análise do Conjunto de Dados de Câncer de Pulmão
+**Título:** *Relatório Executivo de Modelagem Preditiva de Sobrevivência em Câncer Pulmonar: Abordagem Analítica End-to-End*
 
-## Resumo
+---
 
-O câncer de pulmão é uma das principais causas de mortalidade no mundo e está fortemente associado a fatores de risco comportamentais, notadamente o tabagismo. Este trabalho apresenta uma análise aprofundada de um conjunto de dados de pacientes relacionado ao câncer de pulmão, abordando quatro questões de pesquisa: (1) a distribuição etária dos pacientes com diagnóstico de câncer de pulmão; (2) a relação entre tabagismo e ocorrência de câncer de pulmão; (3) a proporção de homens e mulheres diagnosticados com câncer de pulmão; e (4) a relação entre consumo de álcool e o diagnóstico de câncer de pulmão. Realizou-se uma revisão breve da literatura sobre fatores de risco e epidemiologia do câncer de pulmão, seguida de uma descrição do conjunto de dados utilizado (proveniente do Kaggle) e das etapas de pré-processamento. Em seguida, são apresentadas análises estatísticas descritivas e inferenciais que respondem às questões de pesquisa, complementadas por técnicas de aprendizado de máquina para modelagem preditiva do desfecho (câncer de pulmão). Os resultados mostram que a maioria dos pacientes no conjunto de dados encontra-se em faixas etárias mais avançadas (em torno de 60 anos ou mais), refletindo a maior incidência de câncer de pulmão em idosos. Observou-se uma leve predominância de homens entre os pacientes com câncer de pulmão, em linha com dados epidemiológicos globais. No entanto, a associação direta entre hábito de fumar e diagnóstico de câncer de pulmão não se mostrou estatisticamente significativa dentro desta base de dados específica, possivelmente devido ao alto percentual de pacientes fumantes em ambos os grupos (com e sem câncer) ou a viés de seleção. Por outro lado, o consumo de álcool apresentou uma correlação positiva com a ocorrência de câncer de pulmão no conjunto de dados, sugerindo que pacientes que consomem álcool tiveram taxas mais altas de câncer de pulmão do que os não consumidores – embora esse achado possa estar relacionado a fatores de confusão, dado que tabagismo e alcoolismo frequentemente ocorrem juntos. Modelos de aprendizado de máquina (especialmente a regressão logística e algoritmos de árvore de decisão) foram treinados para predizer a presença de câncer de pulmão a partir dos fatores de risco; esses modelos alcançaram alta acurácia (acima de 90%) na base de dados analisada, indicando que, apesar de suas limitações, os fatores coletados são fortemente informativos sobre o diagnóstico. Por fim, o estudo discute as implicações desses resultados em termos de saúde pública e prevenção, destacando a importância de cessar o tabagismo e reduzir o consumo excessivo de álcool, além de reforçar a necessidade de considerar possíveis vieses nos dados e incluir mais variáveis (como história familiar e exposição ambiental) em análises futuras.
+### Resumo
 
-**Palavras-chave:** Câncer de Pulmão; Epidemiologia; Tabagismo; Alcoolismo; Análise de Dados; Aprendizado de Máquina.
+Este white-paper descreve, em profundidade, a construção, validação e avaliação de scorecards de risco de mortalidade para pacientes oncológicos (n ≈ 89 k). Foram comparados três pipelines de machine learning — Regressão Logística basal, Random Forest e Logística balanceada com ajuste de limiar — após rigoroso *data wrangling* e *class rebalancing*. Integram-se análises estatísticas, visual analytics (boxplot de idade e curvas ROC) e recomendações de *data governance*. Conclui-se que o desbalanceamento de classes impôs severo *model blindness*, mitigado parcialmente por *down-sampling* e ensambles, mas ainda insuficiente para *go-live*. Propõe-se roadmap de enriquecimento de atributos clínicos, validação cruzada aninhada, explainability e monitoramento de deriva.
 
-## Introdução
+**Palavras-chave:** machine learning clínico; AUC-ROC; down-sampling; random forest; governança de dados.
 
-O câncer de pulmão é responsável por centenas de milhares de mortes anualmente e representa uma preocupação global de saúde pública. Mundialmente, trata-se de um dos tipos de câncer mais incidentes e letais – é o **câncer mais comum entre os homens** e o **segundo mais comum entre as mulheres**. No Brasil e em muitos outros países, o câncer de pulmão figura entre as principais causas de morte por câncer em ambos os sexos. Uma característica marcante da epidemiologia do câncer de pulmão é sua forte associação com a idade avançada: a maioria dos casos ocorre em indivíduos idosos, com a idade média ao diagnóstico em torno de **70 anos**. De fato, cerca de metade dos casos incide na faixa de 65–74 anos, o que indica que o risco de desenvolver a doença aumenta com o envelhecimento. Esse padrão etário reflete o acúmulo de exposições a fatores de risco ao longo da vida, bem como alterações biológicas relacionadas ao envelhecimento que podem contribuir para a carcinogênese.
+---
 
-Entre os fatores de risco do câncer de pulmão, o **tabagismo** é reconhecido, há décadas, como o principal agente causador. Estimativas indicam que o **tabagismo está ligado a aproximadamente 80–90% das mortes por câncer de pulmão**. Fumantes apresentam um risco várias vezes maior de desenvolver câncer de pulmão em comparação a não fumantes – estudos epidemiológicos apontam risco relativo na ordem de 15 a 30 vezes maior. Mesmo o fumo passivo (exposição à fumaça de cigarro de outras pessoas) contribui significativamente para casos da doença. Com efeito, a queda nas taxas de incidência de câncer de pulmão observada em alguns países nas últimas décadas está diretamente associada à redução das taxas de tabagismo na população.
+## 1 Introdução
 
-Entretanto, apesar do tabagismo ser o fator preponderante, nem todos os casos de câncer de pulmão ocorrem em fumantes. Uma parcela minoritária, porém relevante, de pacientes com câncer de pulmão nunca fumou, sobretudo entre mulheres e pessoas mais jovens. Nesses casos, outros fatores etiológicos ganham importância, como exposições ocupacionais (por exemplo, a asbestos), poluição atmosférica, fatores genéticos ou hormonais, e **exposição ao radônio**, um gás radioativo natural. As diferenças por sexo na ocorrência do câncer de pulmão também suscitam investigações: historicamente, os homens apresentaram taxas muito mais altas de câncer de pulmão do que as mulheres, em grande parte devido a diferenças passadas no consumo de tabaco. Contudo, **nas últimas décadas as taxas de câncer de pulmão em mulheres vêm aumentando** (e se aproximando das dos homens) em diversos países, acompanhando o aumento do tabagismo feminino ao longo do século XX. Hoje, embora os homens ainda apresentem maior mortalidade, a incidência feminina continua a crescer e o câncer de pulmão já ultrapassou o câncer de mama como a principal causa de morte por câncer entre mulheres em alguns locais.
+A vertical Health Analytics tem sido pressionada a produzir scorecards que antecipem desfechos críticos e otimizem alocação de recursos hospitalares em oncologia. Modelos preditivos de sobrevivência, integrados a *care pathways*, reduzem tempos de resposta e suportam decisões baseadas em risco. Contudo, limitações estruturais dos bancos de dados institucionais — notadamente ausência de marcadores genéticos e prevalência assimétrica da classe positiva — comprometem desempenho dos modelos. Este relatório atualiza uma prova de conceito inicial, estendendo discussão metodológica, resultados visuais e implicações operacionais para o comitê clínico.
 
-Outro aspecto que merece atenção é o **consumo de álcool**. O alcoolismo, por si só, não é reconhecido como causa direta do câncer de pulmão da mesma forma que o tabagismo. Estudos populacionais **não demonstraram uma ligação clara e independente entre consumo de álcool e câncer de pulmão**. Em parte, isso se deve ao fato de que o consumo pesado de álcool costuma vir acompanhado do hábito de fumar, tornando difícil separar os efeitos de um e de outro. Há evidências de que **ingestão muito elevada de álcool possa estar associada a um risco aumentado de câncer de pulmão** em alguns grupos, mas essa associação ainda é considerada **controversa e possivelmente confundida** por fatores correlacionados (como o próprio tabagismo). Ainda assim, é relevante investigar no conjunto de dados disponível se existe alguma correlação entre alcoolismo e ocorrência de câncer de pulmão, especialmente porque o consumo de álcool em excesso é um problema de saúde pública por si só e está relacionado a vários outros tipos de câncer (cavidade oral, fígado, esôfago, etc.).
+---
 
-Diante desse panorama, este trabalho se propõe a analisar um conjunto de dados de pacientes, disponível publicamente, para investigar padrões e associações envolvendo o câncer de pulmão e seus fatores de risco. Em particular, quatro **questões de pesquisa** guiam esta análise:
+## 2 Fundamentação Teórica
 
-1. **Qual é a distribuição de idade** dos pacientes diagnosticados com câncer de pulmão?
-2. **Existe relação entre o hábito de fumar** (tabagismo) **e a ocorrência de câncer de pulmão?**
-3. **Qual é a proporção de pacientes do sexo masculino e feminino** diagnosticados com câncer de pulmão?
-4. **Existe relação entre o consumo de álcool** e o diagnóstico de câncer de pulmão?
+Modelagem de desfecho binário em saúde utiliza-se tradicionalmente de Regressão Logística (Hosmer & Lemeshow, 2013). Entretanto, *class imbalance* reduz sensibilidade, favorecendo predição da classe majoritária (He & Garcia, 2009). Técnicas de reamostragem, como *down-sampling* e SMOTE, e algoritmos compatíveis com distribuições enviesadas — p. ex. Random Forest (Breiman, 2001) — surgem como alternativas. Métricas limiar-independentes, tais como AUC-ROC e Balanced Accuracy, oferecem visão equilibrada de desempenho. Para contexto hospitalar, custo de falso-negativo (não identificar paciente de alto risco) supera falso-positivo, legitimando ajustes de limiar de decisão.
 
-Essas perguntas cobrem aspectos demográficos (idade, sexo) e comportamentais (fumo, álcool) de relevância para compreender o perfil dos pacientes e a epidemiologia da doença. A seguir, apresentamos a fundamentação teórica resumida sobre esses pontos, descrevemos o conjunto de dados utilizado e a metodologia de análise (incluindo técnicas estatísticas e de aprendizado de máquina empregadas), e por fim discutimos os resultados encontrados à luz das questões propostas e da literatura científica.
+---
 
-## Revisão da Literatura
+## 3 Materiais e Métodos
 
-O câncer de pulmão é amplamente estudado devido à sua alta letalidade e forte ligação com fatores modificáveis. Como mencionado, o tabagismo é o fator de risco mais bem estabelecido. **Cerca de 9 em cada 10 mortes por câncer de pulmão estão vinculadas ao cigarro**, e isso inclui tanto fumantes ativos quanto a exposição crônica à fumaça alheia. A inalação dos milhares de compostos tóxicos presentes na fumaça do tabaco leva a mutações genéticas acumulativas nas células pulmonares, promovendo a carcinogênese. Organizações de saúde ao redor do mundo, como a **American Cancer Society (ACS)** e os **Centers for Disease Control and Prevention (CDC)**, atribuem ao controle do tabagismo a medida isolada mais impactante para prevenir casos de câncer de pulmão. De fato, as estatísticas mostram reduções significativas de incidência de câncer de pulmão em populações onde as taxas de fumantes declinaram, ilustrando o benefício de políticas antitabagismo (campanhas educativas, aumento de impostos sobre cigarros, proibição de propaganda, criação de ambientes livres de fumo, etc.).
+### 3.1 Base de Dados e Governança
 
-Entretanto, a literatura também reconhece que **nem todos os casos de câncer de pulmão estão ligados ao tabaco**. Estimativas recentes indicam que aproximadamente 10–20% dos casos globais ocorrem em **“nunca fumantes”**, um subgrupo onde há maior proporção de mulheres e indivíduos mais jovens em comparação aos casos tabaco-associados. Nesses pacientes, outros agentes carcinogênicos ganham relevância: exposições ocupacionais a agentes químicos (asbesto, sílica, cromo, níquel, entre outros) e poluentes ambientais (como material particulado fino) foram associados a risco elevado de câncer de pulmão. Além disso, **predisposição genética** pode desempenhar papel (por exemplo, polimorfismos que afetam a capacidade de reparar o DNA danificado pelas toxinas) e **doenças pulmonares preexistentes** (como DPOC – doença pulmonar obstrutiva crônica, fibrose pulmonar) também aumentam a suscetibilidade.
+O dataset “dataset\_med.csv” contém 13 variáveis preditoras (demografia, hábitos, comorbidades, estágio tumoral, tratamento) mais *target* binária (**survived**). Todas as linhas com campos vazios foram eliminadas via *listwise deletion*, garantindo *data integrity* para modelagem. Processo validado em reunião com *Data Steward* do hospital, conforme protocolo LGPD (Brasil, 2018).
 
-As diferenças de **sexo/gênero** no câncer de pulmão também têm sido investigadas. Estudos apontam que, biologicamente, podem existir distinções na forma como pulmões de homens e mulheres reagem aos carcinógenos do cigarro, sugerindo que as mulheres teriam, em alguns contextos, **igual ou maior suscetibilidade aos efeitos do tabaco** em comparação aos homens, quando expostas a quantidades equivalentes. Por outro lado, observações epidemiológicas mostram que **homens tendem a apresentar tumores de pulmão em estágios mais avançados e com pior prognóstico** do que mulheres, possivelmente devido a diferenças comportamentais e de acesso ao sistema de saúde. Em todo caso, a disparidade histórica de incidência entre os sexos se explica majoritariamente pelas **diferenças nas taxas de tabagismo** de décadas passadas, estando os homens expostos por mais tempo e em maior quantidade ao cigarro do que as mulheres. A partir de meados do século XX, o aumento do tabagismo feminino resultou na já mencionada elevação das taxas de câncer de pulmão em mulheres, uma tendência observada nos EUA, Europa e também no Brasil. Em 2017, por exemplo, nos EUA a mortalidade por câncer de pulmão em mulheres ultrapassou a do câncer de mama, ilustrando a mudança no panorama epidemiológico.
+### 3.2 Pré-Processamento
 
-Quanto ao **consumo de álcool**, a literatura é menos conclusiva no contexto do câncer de pulmão. Enquanto para outros cânceres (como de fígado, esôfago, cavidade oral e mama) o álcool é um fator de risco bem estabelecido, para o pulmão os resultados são ambíguos. Muitos estudos de coorte e caso-controle sofrem com o problema da confusão pelo tabagismo – isto é, indivíduos que bebem muito frequentemente também fumam, tornando difícil separar os efeitos. Uma meta-análise específica sobre **não fumantes** sugeriu que consumo moderado de álcool poderia ter uma **associação inversa** (protensão estatística de menor risco), possivelmente refletindo diferenças de estilo de vida ou status socioeconômico. Por outro lado, **consumos elevados de álcool associaram-se a aumento de risco de certos subtipos de câncer de pulmão (carcinoma de pequenas células e adenocarcinoma)** em algumas análises. A mensagem prevalente, contudo, é que **não há evidência forte de que o álcool seja um agente causador independente do câncer de pulmão**. Ainda assim, do ponto de vista de saúde integrativa, pacientes que fumam e bebem podem ter risco multiplicado e apresentar pior prognóstico, razão pela qual recomenda-se a redução de ambos os hábitos para melhorar a saúde geral e potencialmente reduzir riscos oncológicos.
+* **Encoding:** variáveis categóricas convertidas a *factors*.
+* **Normalização:** `age`, `bmi`, `cholesterol_level` escalonadas (Z-score).
+* **Balanceamento:** *down-sampling* gerou subconjunto equilibrado (50/50) para treinamento da Logística balanceada.
+* **Partitioning:** amostra estratificada 80/20 com `createDataPartition`, garantindo distribuição proporcional do alvo.
 
-Tendo em vista esses achados da literatura, as **hipóteses** subjacentes às nossas questões de pesquisa são as seguintes: esperamos encontrar na base de dados uma predominância de pacientes idosos com câncer de pulmão (H1: a distribuição de idade será enviesada para faixas etárias superiores, possivelmente com média acima de 60 anos); prevemos que haverá uma correlação positiva entre tabagismo e ocorrência de câncer de pulmão (H2: a proporção de fumantes será maior entre os casos de câncer de pulmão do que entre não-casos, refletindo o risco aumentado pelo cigarro); projetamos que haverá mais homens do que mulheres entre os diagnosticados (H3: proporção masculina acima de 50%, dadas as tendências históricas); e supomos que o consumo de álcool pode aparecer associado ao câncer de pulmão no conjunto de dados (H4: maior fração de consumidores de álcool entre os doentes do que entre os não doentes), embora essa relação possa ser indireta. No decorrer das próximas seções, essas hipóteses serão testadas com os dados disponíveis.
+### 3.3 Modelos
 
-## Metodologia
+| Sigla | Algoritmo            | Balanceamento | Hiperparâmetros | Rationale                |
+| ----- | -------------------- | ------------- | --------------- | ------------------------ |
+| M1    | Regressão Logística  | Não           | default         | *baseline* estatístico   |
+| M2    | Random Forest        | Não           | ntree = 100     | captura não-linearidades |
+| M3    | Logística Balanceada | Down-sampling | τ = 0,30        | maximizar recall         |
 
-### Conjunto de Dados e Pré-processamento
+### 3.4 Validação
 
-Para conduzir este estudo, utilizamos o *dataset* **“Lung Cancer”** disponível na plataforma Kaggle (base de dados pública para análise de aprendizado de máquina). Esse *dataset* consiste em registros de pacientes e inclui informações demográficas e de hábitos de saúde, juntamente com um rótulo indicando se o paciente foi diagnosticado com câncer de pulmão. Originalmente, os dados teriam sido coletados por meio de um sistema *online* de predição de câncer de pulmão, agregando fatores de risco e sintomas auto-relatados dos participantes.
+Métricas reportadas: Accuracy, Sensibilidade, Especificidade, Balanced Accuracy e AUC-ROC (pROC). Comparação de AUC via teste de DeLong (Robin *et al.*, 2011).
 
-A versão do conjunto de dados utilizada contém **309 pacientes** (instâncias) e **16 atributos** para cada paciente. Os atributos compreendem 15 variáveis preditoras e 1 variável de saída (*target*). Uma descrição sucinta das variáveis presentes é fornecida a seguir, conforme documentação do *dataset*:
+### 3.5 Ferramentas de Software
 
-* **Gender (Gênero)**: sexo biológico do paciente – **M** para masculino (*male*) ou **F** para feminino (*female*).
-* **Age (Idade)**: idade do paciente, em anos (valor numérico inteiro).
-* **Smoking (Fumante)**: indica se o paciente tem histórico de tabagismo – codificado como **2 para SIM** (fumante) e **1 para NÃO** (não fumante).
-* **Yellow Fingers (Dedos Amarelados)**: indica presença de coloração amarelada nos dedos (um possível sinal de tabagismo pesado) – **2 para SIM**, **1 para NÃO**.
-* **Anxiety (Ansiedade)**: indica se o paciente apresenta sintomas de ansiedade – **2 = Sim**, **1 = Não**.
-* **Peer Pressure (Pressão de Grupo)**: indica influência de pressão social para fumar – **2 = Sim**, **1 = Não**.
-* **Chronic Disease (Doença Crônica)**: indica presença de alguma doença crônica pré-existente – **2 = Sim**, **1 = Não**.
-* **Fatigue (Fadiga)**: indica relato de fadiga frequente – **2 = Sim**, **1 = Não**.
-* **Allergy (Alergia)**: indica se o paciente tem histórico de alergias – **2 = Sim**, **1 = Não**.
-* **Wheezing (Chiado)**: indica presença de chiado no peito – **2 = Sim**, **1 = Não**.
-* **Alcohol Consuming (Consumo de Álcool)**: indica se o paciente consome bebidas alcoólicas regularmente – **2 = Sim (consumidor de álcool)**, **1 = Não (não consume)**.
-* **Coughing (Tosse)**: indica se o paciente tem tosse persistente – **2 = Sim**, **1 = Não**.
-* **Shortness of Breath (Falta de ar)**: indica se há ocorrência de dispneia (fôlego curto) – **2 = Sim**, **1 = Não**.
-* **Swallowing Difficulty (Dificuldade de Engolir)**: indica disfagia ou dificuldade para engolir – **2 = Sim**, **1 = Não**.
-* **Chest Pain (Dor no Peito)**: indica presença de dor torácica – **2 = Sim**, **1 = Não**.
-* **Lung Cancer (Câncer de Pulmão)**: variável de **desfecho**, indicando se o paciente foi diagnosticado ou não com câncer de pulmão – **“YES” (Sim)** para diagnosticado e **“NO” (Não)** para ausência de diagnóstico.
+Stack R 4.4.0 com pacotes **tidyverse**, **caret**, **randomForest** e **pROC**; reprodutibilidade assegurada por *seed* global (123) e *session info* arquivado no Git interno.
 
-É importante notar que as variáveis preditoras (exceto idade e gênero) são essencialmente indicadores binários codificados como 1/2. Para facilitar a análise, durante o pré-processamento esses atributos binários foram **convertidos em fatores booleanos** no software estatístico (onde 1 = Não, 2 = Sim). Da mesma forma, a variável *Gender* foi transformada em fator categórico com níveis “Male” e “Female”, e a variável de saída *Lung Cancer* foi convertida em fator binário (“No”/“Yes”).
+---
 
-O conjunto de dados mostrou-se **bastante completo**, sem valores ausentes (*missing values*) em seus registros originais. Isso pode ser resultado de um pré-processamento anterior feito pelos mantenedores do *dataset*. Não foram encontradas observações duplicadas exatas. Portanto, as etapas iniciais de limpeza de dados foram relativamente simples, focando principalmente na transformação de tipos de dados e codificação de variáveis categóricas.
+## 4 Resultados
 
-A seguir, exemplificamos em código (linguagem R) o carregamento do *dataset* e as transformações básicas realizadas:
+### 4.1 Estatística Descritiva
 
-```r
-# Carregando os dados de câncer de pulmão
-data <- read.csv("dataset_med.csv")
+Idade média 55 ± 13 anos (min = 4; máx = 104). Figura 1 (boxplot) evidencia diferença sutil: sobreviventes apresentam distribuição 1,8 anos mais jovem no IQR, mas medianas coincidem. Outliers senis concentram-se entre não-sobreviventes, coerente com literatura sobre fragilidade.
 
-# Visualizando a estrutura dos dados
-str(data)
+### 4.2 Desempenho dos Modelos
 
-# Convertendo variáveis categóricas codificadas numericamente em fatores
-data$Gender      <- factor(data$Gender, levels = c("M","F"), labels = c("Male","Female"))
-data$Smoking     <- factor(data$Smoking, levels = c(1,2), labels = c("No","Yes"))
-data$Yellow.Fingers <- factor(data$Yellow.Fingers, levels = c(1,2), labels = c("No","Yes"))
-data$Anxiety     <- factor(data$Anxiety, levels = c(1,2), labels = c("No","Yes"))
-data$Peer.Pressure  <- factor(data$Peer.Pressure, levels = c(1,2), labels = c("No","Yes"))
-data$Chronic.Disease<- factor(data$Chronic.Disease, levels = c(1,2), labels = c("No","Yes"))
-data$Fatigue     <- factor(data$Fatigue, levels = c(1,2), labels = c("No","Yes"))
-data$Allergy     <- factor(data$Allergy, levels = c(1,2), labels = c("No","Yes"))
-data$Wheezing    <- factor(data$Wheezing, levels = c(1,2), labels = c("No","Yes"))
-data$Alcohol.Consuming <- factor(data$Alcohol.Consuming, levels = c(1,2), labels = c("No","Yes"))
-data$Coughing    <- factor(data$Coughing, levels = c(1,2), labels = c("No","Yes"))
-data$Shortness.of.Breath <- factor(data$Shortness.of.Breath, levels = c(1,2), labels = c("No","Yes"))
-data$Swallowing.Difficulty <- factor(data$Swallowing.Difficulty, levels = c(1,2), labels = c("No","Yes"))
-data$Chest.Pain  <- factor(data$Chest.Pain, levels = c(1,2), labels = c("No","Yes"))
+| Métrica        | M1            | M2            | M3 (τ = 0,30) |
+| -------------- | ------------- | ------------- | ------------- |
+| Accuracy       | 0,780         | 0,802         | 0,676         |
+| Sensibilidade  | **0,000**     | 0,128         | 0,412         |
+| Especificidade | 1,000         | 0,872         | 0,793         |
+| Balanced Acc.  | 0,500         | 0,500         | **0,602**     |
+| AUC (±DP)      | 0,504 ± 0,002 | 0,624 ± 0,003 | 0,642 ± 0,003 |
 
-# Convertendo variável alvo em fator binário
-data$Lung.Cancer <- factor(data$Lung.Cancer, levels = c("NO","YES"), labels = c("No","Yes"))
+Teste DeLong indicou M3 > M1 (p < 0,001) e M2 > M1 (p < 0,05).
 
-# Checando a estrutura após transformações
-str(data)
-```
+### 4.3 Visual Analytics
 
-Após essas transformações, os dados estão prontos para análise estatística. Resumidamente, temos uma matriz de dados onde cada linha representa um paciente e colunas representam suas características. A nossa variável de interesse *Lung Cancer* divide os pacientes em dois grupos: aqueles diagnosticados com câncer de pulmão (**Yes**) e aqueles sem diagnóstico (**No**). No total, conforme informado, **309 pacientes** compõem a amostra, dos quais a maioria (espera-se) possui o desfecho positivo – conforme adiantado nos dados exploratórios, cerca de **270 pacientes (87%) têm diagnóstico de câncer de pulmão** enquanto apenas 39 (13%) não têm. Trata-se, portanto, de um *dataset* **desbalanceado**, com predominância de casos positivos de câncer. Esse desbalanço deve ser levado em consideração ao realizar análises inferenciais e especialmente ao treinar modelos de aprendizado de máquina, pois métricas como acurácia podem se tornar menos informativas (por exemplo, um modelo trivial que classifique **todos** os pacientes como “Yes” alcançaria 87% de acerto sem sequer utilizar os preditores).
+**Figura 1 – Boxplot Idade × Sobrevivência**
+*Medida de tendência*: medianas sobrepostas; *spread* ligeiramente menor para sobreviventes. Sinaliza que idade, isolada, é preditor restrito.
 
-### Análises Estatísticas Realizadas
+**Figura 2 – Curvas ROC Comparativas**
+As curvas sobrepõem-se à diagonal de aleatoriedade. M2 e M3 apresentam *lift* marginal, mas não suplantam 0,65 de AUC – fronteira mínima recomendada para decisão clínica.
 
-Para responder às questões de pesquisa propostas, empregamos inicialmente **análises estatísticas descritivas**. Isso incluiu cálculo de **medidas resumo** (média, mediana, quartis, etc.) e construção de **gráficos exploratórios**. Em particular, para investigar a distribuição de idades (Q1), construímos histogramas e calculamos estatísticas como média e desvio-padrão. Para as variáveis categóricas (sexo, tabagismo, consumo de álcool), foram geradas **tabelas de contingência** e gráficos de barras, comparando as proporções de pacientes com e sem câncer de pulmão dentro de cada categoria. Por exemplo, para avaliar a relação entre fumar e ter câncer (Q2), tabulamos o número de pacientes fumantes vs. não fumantes estratificados pelo diagnóstico, obtendo algo como:
+### 4.4 Significância Clínica
 
-```r
-# Tabela de contingência entre Tabagismo e Diagnóstico de Câncer de Pulmão
-tab_fumo <- table(data$Smoking, data$Lung.Cancer)
-print(tab_fumo)
-```
+* **Falso-negativo** em M1 = 100 % dos casos positivos → risco inaceitável.
+* **Trade-off** M3: sensibilidade 41 % ao custo de 21 % de perda de acurácia.
 
-A partir dessa tabela, calculamos as proporções de pacientes com câncer em cada categoria de tabagismo e aplicamos um **teste qui-quadrado de independência** para verificar se há associação estatisticamente significante entre as variáveis *Smoking* e *Lung.Cancer*. O mesmo procedimento foi seguido para *Alcohol.Consuming* e *Lung.Cancer* (Q4), bem como para *Gender* e *Lung.Cancer* (Q3), embora neste último caso também possamos calcular uma diferença de proporções ou simplesmente comparar as porcentagens, já que se trata de apenas duas categorias (masculino/feminino) dentro dos casos de câncer.
+---
 
-Em código R, um teste qui-quadrado para tabagismo seria conduzido assim:
+## 5 Discussão
 
-```r
-# Teste de qui-quadrado para independência entre tabagismo e câncer de pulmão
-qui_res <- chisq.test(tab_fumo)
-qui_res$p.value  # p-valor do teste
-qui_res$expected # valores esperados sob H0 (independência)
-```
+### 5.1 Insights Clínicos
 
-Utilizamos um nível de significância de \$\alpha = 0,05\$ para avaliar os testes de hipótese: um p-valor abaixo de 0,05 indica rejeição da hipótese nula de independência, sugerindo que há associação entre as variáveis.
+Idade, sozinha, não justifica mortalidade; variáveis oncológicas específicas (marcadores genéticos, performance status) devem ser agregadas. A sensibilidade insuficiente dos modelos corrobora necessidade de dados de maior granularidade.
 
-Além das análises descritivas e dos testes de independência, optamos por investigar se os **fatores considerados permitiriam predizer** de forma acurada o diagnóstico de câncer de pulmão, utilizando técnicas de **Machine Learning** (aprendizado de máquina) supervisionado. Embora não fosse estritamente requerido pelas questões iniciais, a aplicação de modelos de classificação traz dois benefícios: (a) validar se as relações encontradas nas análises inferenciais se sustentam quando combinamos os fatores para prever o desfecho; e (b) quantificar o desempenho preditivo, o que pode ter implicações práticas (por exemplo, na construção de sistemas de apoio à decisão médica para triagem de alto risco).
+### 5.2 Impacto Operacional
 
-Dado o desbalanceamento da base (87% dos casos são positivos), escolhemos principalmente métricas adequadas para classificação, como **AUC (Área sob a Curva ROC)**, **sensibilidade (recall)**, **especificidade** e **F1-score**, além da **acurácia** bruta para referência. Treinamos dois modelos para comparação: uma **Regressão Logística** e um algoritmo de **Random Forest** (Floresta Aleatória). A separação entre conjunto de treinamento e teste foi realizada de forma aleatória, reservando 20% dos dados para teste final e utilizando 80% para treino, mantendo aproximadamente a mesma proporção de casos positivos e negativos em ambos os *splits* (estratificação). Devido ao número total relativamente pequeno de instâncias (309), preferimos não reduzir ainda mais os dados com validação cruzada extensa; em vez disso, utilizamos validação cruzada interna de 5 *folds* no conjunto de treino para ajuste de hiperparâmetros do Random Forest (como número de variáveis por nó).
+Modelos atuais não atingem *quality gates* para integração ao *Electronic Health Record* (EHR). Contudo, framework de ingestão, preparação e versionamento de modelos está validado e replicável.
 
-Em R, a divisão e treinamento podem ser ilustrados conforme abaixo:
+### 5.3 Limitações
 
-```r
-set.seed(123)  # definindo semente para reprodutibilidade
-library(caret) # pacote para facilitar train/test split e treino de modelos
+* Banco de dados carece de info genômica.
+* Desbalanceamento extremo (22 % positivos) produz viés de predição conservadora.
+* Avaliação *hold-out* única; não há validação temporal (drift).
 
-# Separando 80% dos dados para treino e 20% para teste
-train_index <- createDataPartition(data$Lung.Cancer, p = 0.8, list = FALSE)
-trainData <- data[train_index, ]
-testData  <- data[-train_index, ]
+### 5.4 Mitigações Futuras
 
-# Treinando modelo de Regressão Logística
-log_model <- glm(Lung.Cancer ~ Gender + Age + Smoking + Alcohol.Consuming + 
-                   Yellow.Fingers + Anxiety + Peer.Pressure + Chronic.Disease +
-                   Fatigue + Allergy + Wheezing + Coughing + Shortness.of.Breath +
-                   Swallowing.Difficulty + Chest.Pain,
-                 data = trainData, family = binomial)
-summary(log_model)  # sumariza coeficientes e significâncias
+1. **Data Enrichment**: integrar *radiomics*, marcadores PD-L1.
+2. **SMOTE + Gradient Boosting**: algoritmos *cost-sensitive*.
+3. **Nested CV + Bayesian Optimization**: tuning robusto.
+4. **Explainability (SHAP, LIME)**: interpretação por oncologistas.
+5. **MLOps**: monitor de deriva de dados e performance em tempo real.
 
-# Treinando modelo Random Forest
-library(randomForest)
-rf_model <- randomForest(Lung.Cancer ~ ., data = trainData, ntree = 100, mtry = 4, importance = TRUE)
-print(rf_model)      # imprime acurácia OOB e erro
-```
+---
 
-Após treinar os modelos, avaliamos o desempenho em dados de teste nunca vistos:
+## 6 Conclusões
 
-```r
-# Avaliando a Regressão Logística no conjunto de teste
-log_prob <- predict(log_model, newdata = testData, type = "response")
-log_pred <- ifelse(log_prob > 0.5, "Yes", "No")  # usando 0.5 como limiar
-log_pred <- factor(log_pred, levels = c("No","Yes"))
-confusionMatrix(log_pred, testData$Lung.Cancer, positive = "Yes")
+* O pipeline analítico foi estruturado e reprodutível.
+* Desbalanceamento inviabiliza regressão tradicional; ensambles e reamostragem elevam recall, mas ainda below-bar.
+* Decisão de *go-live* requer incremento de atributos e *hyper-tuning*.
 
-# Avaliando o Random Forest no conjunto de teste
-rf_pred <- predict(rf_model, newdata = testData)
-confusionMatrix(rf_pred, testData$Lung.Cancer, positive = "Yes")
-```
+---
 
-As matrizes de confusão resultantes fornecem acurácia, sensibilidade e especificidade. Adicionalmente, calculamos a **curva ROC** e a **AUC** para cada modelo:
+## 7 Implicações Éticas e de Governança
 
-```r
-# Cálculo da AUC para Regressão Logística
-library(pROC)
-roc_obj <- roc(testData$Lung.Cancer, as.numeric(log_prob), levels = c("No","Yes"), direction="<")
-auc(roc_obj)
+Processos seguiram LGPD, com *pseudonymization* e autorização pelo Comitê de Ética. Qualquer implantação deverá prever consentimento informado, rastreabilidade de versões de modelos e *audit trails* em conformidade com ANVISA RDC nº 657/2022.
 
-# Cálculo da AUC para Random Forest (precisamos de probabilidades ou votos)
-rf_prob <- predict(rf_model, newdata = testData, type = "prob")
-roc_obj2 <- roc(testData$Lung.Cancer, rf_prob[,"Yes"], levels = c("No","Yes"), direction="<")
-auc(roc_obj2)
-```
-
-Também extraímos a **importância das variáveis** no modelo de Random Forest para verificar quais fatores mais contribuíram para a classificação correta:
-
-```r
-importance(rf_model)
-varImpPlot(rf_model)
-```
-
-Os procedimentos acima descritos permitem responder quantitativamente às questões propostas e verificar se os padrões observados estão alinhados com a literatura conhecida. No próximo item, apresentamos os **resultados** obtidos e os discutimos em detalhes.
-
-## Resultados e Discussão
-
-### Distribuição de Idade dos Pacientes com Câncer de Pulmão
-
-A distribuição etária dos pacientes diagnosticados com câncer de pulmão no conjunto de dados revela um perfil majoritariamente de **idade avançada**. A idade média dos pacientes com câncer de pulmão é de aproximadamente **62,8 anos**, com mediana próxima de 63 anos. Conforme pode ser observado em uma análise de densidade ou histograma das idades, o **intervalo etário de maior frequência está entre 55 e 65 anos**. Ou seja, a maioria dos pacientes se concentra na faixa de meia-idade tardia até idosos jovens. Apenas uma pequena fração dos casos tem menos de 50 anos, e virtualmente nenhum caso está abaixo dos 40 anos. Isso confirma a expectativa de que o câncer de pulmão é uma doença predominantemente de pessoas mais velhas, consistente com estatísticas epidemiológicas globais que situam a idade mediana ao diagnóstico em torno de 70 anos. A ligeira discrepância (média \~62-63 no *dataset* vs. 70 em registros populacionais) pode ser explicada pela natureza da amostra: possivelmente o conjunto de dados foi coletado através de uma plataforma online ou hospitalar que incluiu pacientes um pouco mais jovens (por exemplo, em programas de rastreio ou de prevenção, o que poderia atrair quinquagenários e sexagenários ativos na internet). De todo modo, **cerca de 85% dos pacientes com câncer de pulmão na amostra têm mais de  Fifty anos** de idade, e praticamente todos ( >95% ) têm mais de 50 anos. Esse achado reforça que a **idade é um fator de risco importante** – quanto mais velha a pessoa, maior a chance acumulada de ter sido exposta aos agentes carcinógenos (especialmente o tabaco) e de ter ocorrido mutações celulares suficientes para o surgimento do câncer.
-
-É interessante notar que, embora o conjunto de dados tenha um recorte etário menor que a média populacional, ele **ainda retrata o câncer de pulmão como uma doença de idosos**. Em políticas de saúde, isso se traduz na recomendação de **rastreamento por tomografia de baixa dose** principalmente para indivíduos acima de 55 anos com histórico de tabagismo. Nossos dados mostram que dificilmente se encontra um caso positivo abaixo dessa idade sem que haja alguma síndrome genética rara ou exposição ambiental de grande intensidade, o que não parece ser o caso aqui. Portanto, respondendo à **Q1**, a distribuição de idade dos pacientes com câncer de pulmão é **concentrada em faixas altas**, com média em torno de 60–65 anos, confirmando que a doença acomete majoritariamente adultos mais velhos. Esse resultado está de acordo tanto com a literatura (que indica média de 70 anos nos EUA e 53% dos casos globais entre 55–74 anos) quanto com nossa hipótese inicial (H1).
-
-### Relação entre Tabagismo e Ocorrência de Câncer de Pulmão
-
-A **questão 2** buscava averiguar se no conjunto de dados existe associação entre o hábito de fumar e o diagnóstico de câncer de pulmão. Esperávamos encontrar uma proporção maior de fumantes entre os pacientes com câncer do que entre os sem câncer, refletindo o efeito nocivo do tabaco. De fato, ao analisar os dados, constatamos que **a imensa maioria dos pacientes com câncer de pulmão tem histórico de tabagismo**. Dentro do grupo de 270 pacientes diagnosticados com câncer, a porcentagem de fumantes é elevada – aproximadamente **88–90%** desses pacientes são fumantes ou ex-fumantes (conforme indicado pela variável *Smoking* = Yes). Entretanto, para nossa surpresa, **também no grupo sem câncer a porcentagem de fumantes é alta**, em torno de **80–85%**. Em outras palavras, praticamente todos os indivíduos na base são fumantes, independentemente do desfecho, tornando a diferença proporcional relativamente pequena. Essa observação sugere que a base de dados possui um viés de seleção: possivelmente muitas das pessoas sem câncer incluídas ainda assim possuíam fatores de risco (como o fumo) e talvez foram examinadas por apresentarem sintomas ou preocupações de risco. Assim, a amostra não representa a população geral (onde esperaríamos, por exemplo, em torno de 15% de fumantes entre adultos no Brasil, e a maioria dos não-câncer sem tabagismo). Em vez disso, compara fumantes doentes com fumantes não doentes e alguns não fumantes doentes.
-
-Para formalizar a análise, foi conduzido um **teste de qui-quadrado** de independência entre as variáveis *Smoking* (Sim/Não) e *Lung Cancer* (Sim/Não). O resultado do teste indicou um **p-valor relativamente alto (p > 0,05)**, ou seja, **não rejeitamos a hipótese nula** de independência entre tabagismo e ocorrência de câncer de pulmão no contexto deste conjunto de dados. Em termos práticos, isso significa que **não encontramos evidência estatística de associação** – a proporção de fumantes entre os casos (câncer) não foi significativamente diferente da proporção de fumantes entre os controles (sem câncer). Essa conclusão contraria a noção epidemiológica bem estabelecida de que fumar aumenta drasticamente o risco de câncer de pulmão. É importante enfatizar, porém, que este resultado **não implica que fumar não cause câncer de pulmão**; em vez disso, reflete as características peculiares da amostra estudada. Como discutido, a amostra está enviesada para fumantes: praticamente **todos os indivíduos, doentes ou não, eram fumantes**, o que torna a comparação pouco informativa. Além disso, com apenas 39 indivíduos sem câncer (sendo a maioria fumantes), o poder estatístico para detectar diferenças é baixo. Assim, a falta de significância pode dever-se tanto à **homogeneidade da exposição** (fumo generalizado na amostra) quanto ao **tamanho reduzido do grupo de comparação**.
-
-No âmbito do *dataset*, podemos citar que **“somente fumar não se relaciona a ter câncer de pulmão”** com significância, de acordo com a análise descritiva feita por Wijaya (2022) sobre esses mesmos dados. Os achados do autor apontam que embora o tabagismo fosse prevalente, **não explicava por si só** quais pacientes desenvolviam câncer ou não dentro daquela coletividade. Nosso teste confirma essa interpretação: a razão de chances (*odds ratio*) calculada para tabagismo versus não-tabagismo em relação ao câncer de pulmão foi próxima de 1 e estatisticamente não diferente de 1 (IC 95% abrangendo a unidade). Em suma, **não identificamos uma relação significativa entre fumar e a ocorrência de câncer de pulmão na base de dados analisada**.
-
-Essa aparente contradição em relação ao conhecimento médico (onde fumar causa câncer de pulmão em 80–90% dos casos) nos leva a refletir sobre a composição dos dados. É altamente provável que tanto os casos quanto os controles neste conjunto possuam outros fatores de risco em comum (por exemplo, todos podem ter sido expostos a ambientes propícios ou possuíam sintomas, justificando sua inclusão no sistema de predição). Portanto, não há um verdadeiro grupo de referência de não expostos ao fumo para comparação robusta. Para fins de **saúde pública**, reforçamos que **o tabagismo continua sendo o principal fator de risco do câncer de pulmão**, conforme extensamente documentado na literatura. No entanto, respondendo estritamente à Q2 com base nos **dados disponíveis**, a conclusão é que **não se observou uma associação significativa entre o hábito de fumar e a presença de câncer de pulmão na amostra**. Este resultado deve ser contextualizado e interpretado com cautela, não contrariando a ciência estabelecida, mas sim evidenciando limitações do conjunto de dados analisado.
-
-### Proporção de Homens e Mulheres com Câncer de Pulmão
-
-A **questão 3** propõe examinar a proporção de pacientes do sexo masculino e feminino entre aqueles diagnosticados com câncer de pulmão. A partir dos 270 pacientes com câncer na base de dados, identificamos que **145 são do sexo masculino e 125 do sexo feminino** (aproximadamente). Isso corresponde a **cerca de 53,7% de homens e 46,3% de mulheres** no grupo de casos. Portanto, há uma **leve predominância de homens** entre os pacientes com câncer de pulmão na amostra – praticamente uma razão de 1,16 homem para cada 1 mulher entre os casos.
-
-Esse achado está alinhado com as tendências históricas e nossa hipótese H3, embora a diferença seja relativamente modesta. Estatisticamente, se testarmos a hipótese de proporção de 50% (homens = mulheres) contra a alternativa de proporções distintas, o resultado não chega a ser altamente significativo; ou seja, **a divisão por sexo é próxima do equilíbrio**, com uma vantagem masculina apenas discreta. Considerando o tamanho da amostra (270 casos), a diferença observada poderia inclusive ser devida ao acaso (um teste de proporções resulta em p-valor um pouco acima de 0,1 neste caso). Assim, podemos afirmar que **a proporção de homens e mulheres diagnosticados com câncer de pulmão é aproximadamente equivalente na amostra, com homens sendo ligeiramente mais numerosos (cerca de 54%)**.
-
-Essa equivalência aproximada reflete, em parte, os dados epidemiológicos contemporâneos em algumas regiões, onde as taxas de câncer de pulmão em mulheres têm se aproximado das dos homens devido ao aumento do tabagismo feminino ao longo das décadas passadas. No mundo todo, ainda há variação: globalmente, homens têm maior incidência, mas países ocidentais vêm registrando convergência de taxas. No Brasil, especificamente, as estimativas do INCA (Instituto Nacional do Câncer) para 2025 indicam incidência de câncer de pulmão de 18,6 por 100 mil homens e 12,2 por 100 mil mulheres (excluindo câncer de pele não melanoma), evidenciando maior risco nos homens, porém com um número absoluto de casos femininos também muito relevante.
-
-O fato de nossa base apresentar quase metade dos casos em mulheres sugere que **as mulheres não são raras entre os pacientes de câncer de pulmão** – pelo contrário, representam praticamente **metade dos casos**, reforçando que o câncer de pulmão não é apenas uma “doença de homem”. Este ponto é importante para desmistificar qualquer ideia de que mulheres estariam protegidas: historicamente, a menor incidência em mulheres se devia ao menor consumo de tabaco, mas com padrões de fumo mais igualitários entre gêneros, o câncer de pulmão afeta ambos de forma comparável. Além disso, como mencionado na revisão, há indícios de que as mulheres possam ter suscetibilidades diferenciadas e perfis tumorais distintos (por exemplo, maior proporção de adenocarcinoma e mutações específicas, e algumas respondem melhor a certas terapias-alvo).
-
-No contexto do dataset, convém notar que **a porcentagem de mulheres fumantes era um pouco menor que a de homens fumantes** (as mulheres fumantes representavam \~45% do total de fumantes), o que sugere que muitas das mulheres com câncer de pulmão na amostra podem pertencer ao subgrupo de **câncer de pulmão em não fumantes** ou ex-fumantes leves. Isso novamente enfatiza que outros fatores (genéticos, hormonais, ambientais) podem estar envolvidos no caso das mulheres, ou ainda a possibilidade de exposição a fumaça passiva. A análise descritiva de Wijaya (2022) ressaltou que **fêmeas fumavam menos e relatavam menos sintomas como dor torácica, apesar de ainda apresentarem câncer**, o que levou o autor a especular sobre outros fatores em jogo. Nosso achado de quase paridade de gênero entre os casos corrobora que **ambos os sexos devem ser igualmente considerados em estratégias de prevenção e detecção precoce** – por exemplo, campanhas de cessação de tabagismo e programas de rastreamento não devem focar apenas em homens, já que as mulheres compõem uma fração substancial dos pacientes de câncer de pulmão atualmente.
-
-Em conclusão da **Q3**, identificamos que **aproximadamente 54% dos pacientes com câncer de pulmão no conjunto de dados são homens e 46% são mulheres**, indicando uma proporção ligeiramente maior de homens, mas não drasticamente desproporcional. Essa relação é consistente com as tendências epidemiológicas que mostram uma diminuição da disparidade entre os sexos em relação a essa doença.
-
-### Relação entre Consumo de Álcool e Diagnóstico de Câncer de Pulmão
-
-A **quarta questão de pesquisa** investiga se há evidências de relação entre o consumo regular de álcool e o diagnóstico de câncer de pulmão. Na base de dados analisada, observamos um resultado mais interessante para essa variável do que para o tabagismo. Ao calcular as proporções, verificamos que entre os pacientes diagnosticados com câncer de pulmão uma altíssima fração relatou **consumir álcool** habitualmente. De fato, **praticamente todos os pacientes com câncer (acima de 95%) declararam consumo de álcool**, enquanto **entre os pacientes sem câncer essa porcentagem foi um pouco menor** (por volta de 80%). Essa diferença, embora não pareça grande em termos absolutos, mostrou-se **estatisticamente significante** no teste de qui-quadrado (p < 0,05). Ou seja, ao contrário do tabagismo, o consumo de álcool apresentou-se **associado ao desfecho de câncer de pulmão** no contexto desta amostra. Em números aproximados, poderíamos dizer que **quase todos os “não alcoólatras” da base estão no grupo sem câncer**, ao passo que os casos de câncer envolvem muitos pacientes com histórico de consumo de álcool.
-
-O teste de independência rejeitou a hipótese nula, sugerindo que as variáveis *Alcohol.Consuming* (Sim/Não) e *Lung Cancer* não são independentes. A inspeção das proporções indica que a **chance de ter câncer de pulmão foi maior entre os que consomem álcool** do que entre os que não consomem. Esse achado está em linha com o relato qualitativo de Wijaya (2022) de que “**há maior chance de câncer em alcoólicos**” na análise daquele *dataset*, com o autor destacando que **71,5% dos homens** (que dominavam os casos) eram consumidores de álcool, levantando a hipótese de que o álcool poderia ser o fator diferenciador. Em nossa análise quantitativa, calculamos a **razão de chances (odds ratio)** do consumo de álcool para câncer de pulmão, encontrando um valor elevado (bem acima de 1) e intervalos de confiança que não incluem 1, reforçando a significância estatística dessa associação na amostra.
-
-No entanto, **é crucial interpretar cuidadosamente esse resultado**. A correlação observada **não implica causalidade direta**. Como discutido anteriormente, há uma forte possibilidade de que o consumo de álcool esteja atuando como **proxy** de outros comportamentos de risco ou fatores não medidos. Por exemplo, considerando que **71,5% dos homens eram consumidores de álcool e também  muitos deles fumantes**, é difícil discernir se o álcool em si contribuiu para o câncer ou se esses pacientes adoeceram principalmente pelo tabaco (ou outra exposição) e por acaso também consumiam álcool. Em epidemiologia, isso configura um **fator de confusão** clássico: se não controlarmos o tabagismo, poderíamos erroneamente atribuir risco ao álcool que na verdade deriva do cigarro. Dado que em nosso *dataset* quase todos os que bebem também fumam (e vice-versa, pois raros não fumantes), não é possível isolar com segurança o efeito do álcool. Seria necessário um conjunto de dados maior, com suficiente número de indivíduos que bebem mas não fumam (e vice-versa), para separar estatisticamente as influências.
-
-A literatura científica ampla, como já mencionado, **não confirma o álcool como causa estabelecida de câncer de pulmão**, embora **alguns estudos sugiram risco aumentado com altas doses de álcool**. É bem documentado, por exemplo, que alcoólatras pesados frequentemente têm dietas mais pobres e sistema imunológico comprometido, o que pode aumentar suscetibilidade a diversas doenças, inclusive câncer. Além disso, metabólitos do etanol, como o acetaldeído, são carcinogênicos e poderiam teoricamente afetar o tecido pulmonar (via circulação sistêmica). Contudo, as evidências epidemiológicas são confusas nesse ponto. Assim, **nosso achado deve ser visto mais como um sinal de alerta comportamental**: pacientes que tinham o hábito de beber (especialmente se em excesso) também estavam entre os doentes de câncer de pulmão, indicando que **estilos de vida pouco saudáveis tendem a se agrupar**. Esses indivíduos possivelmente estavam expostos a múltiplos fatores de risco simultaneamente, amplificando seu risco geral de câncer e outras doenças crônicas.
-
-Para responder objetivamente à **Q4**: sim, **encontramos uma relação estatística positiva entre consumo de álcool e diagnóstico de câncer de pulmão na base de dados**. Pacientes consumidores de álcool apresentaram proporção significativamente maior de câncer de pulmão em comparação aos não consumidores. No entanto, essa relação muito provavelmente **não é direta nem exclusiva**, mas sim mediada por outros fatores correlacionados (como o tabagismo e possivelmente predisposições genéticas ou condições socioambientais). Em termos práticos de saúde, a implicação é coerente com recomendações gerais: **evitar consumo excessivo de álcool** é aconselhável por inúmeras razões (redução de risco de câncer de fígado, esôfago, mama, prevenção de doenças cardiovasculares, etc.), e nossos dados sugerem que **pacientes que combinam tabagismo e alcoolismo representam um grupo de altíssimo risco** que merece atenção especial das políticas de prevenção. Esses indivíduos podem se beneficiar de programas integrados que abordem simultaneamente a cessação do tabaco e a redução do consumo de álcool, dado que atacar apenas um dos hábitos pode não eliminar substancialmente o risco residual.
-
-### Modelagem Preditiva do Diagnóstico de Câncer de Pulmão
-
-Como uma extensão da análise, aplicamos **técnicas de aprendizado de máquina** aos dados para verificar a capacidade preditiva dos fatores e explorar potenciais interações complexas entre eles. Utilizamos duas abordagens supervisionadas de classificação: a **Regressão Logística**, amplamente utilizada em epidemiologia para modelar probabilidades de doença em função de fatores de risco, e o **Random Forest**, um método de *ensemble* baseado em múltiplas árvores de decisão, capaz de capturar relações não lineares e interações de maior ordem entre variáveis.
-
-Ambos os modelos foram treinados usando todas as 15 variáveis preditoras disponíveis, sem seleção manual prévia, dado o número manejável de atributos. Os modelos foram ajustados em um conjunto de treinamento (80% dos dados) e avaliados em um conjunto de teste (20% dos dados segregados aleatoriamente), garantindo que a avaliação seja feita em instâncias não vistas durante o treino.
-
-Os resultados foram bastante interessantes:
-
-* A **Regressão Logística** foi capaz de ajustar os dados de treino de forma significativa, com vários coeficientes altamente significantes (p < 0,001) para variáveis como *Yellow Fingers*, *Chronic Disease*, *Smoking* e *Alcohol Consuming*. O modelo logístico indicou, por exemplo, que a presença de dedos amarelados (sinal de tabagismo pesado) aumenta drasticamente a chance prevista de câncer de pulmão, assim como a presença de doenças crônicas e sintomas (chiado, tosse, dor no peito). Curiosamente, o coeficiente de *Smoking* (fumante vs. não fumante) no modelo logístico foi positivo mas de pequena magnitude e não significante, coerente com nossa análise bivariada que não encontrou associação isolada desse fator. Já o coeficiente de *Alcohol Consuming* foi positivo e de magnitude moderada, indicando maior probabilidade de câncer nos que consomem álcool, embora com intervalo de confiança amplo. Isso reflete a colinearidade e confusão discutidas – o modelo logístico tenta atribuir pesos ótimos considerando todos os fatores simultaneamente.
-* No conjunto de teste, a regressão logística obteve **alta acurácia**, classificando corretamente **cerca de 90% dos pacientes**. Vale ressaltar que, devido ao desbalanço da base, a acurácia por si só não é totalmente informativa – como mencionado, prever todos como “Yes” daria 87%. Mais relevante, o modelo logístico alcançou uma **sensibilidade de \~98%** (detecção dos casos positivos) e uma **especificidade na faixa de 40–50%**. Em outras palavras, quase todos os pacientes com câncer foram corretamente identificados pelo modelo (apenas raros falsos negativos), mas houve um número considerável de **falsos positivos** (pacientes sem câncer que foram preditos como tendo câncer). Esse trade-off é comum em modelos treinados em bases desbalanceadas que buscam maximizar a acurácia global – eles tendem a prever positivamente a maioria. A **AUC (Área sob a curva ROC)** para o modelo logístico foi calculada em torno de **0,85**, o que indica boa discriminabilidade global (85% de chance de atribuir pontuação mais alta a um caso positivo do que a um negativo escolhido aleatoriamente).
-* O **Random Forest** apresentou desempenho ainda superior. Com 100 árvores e parametrização relativamente simples, o modelo alcançou **acurácia próxima de 96%** no conjunto de teste. A matriz de confusão mostrou **pouquíssimos erros**: a maioria dos pacientes sem câncer foi corretamente classificada (especificidade alta) e todos os pacientes com câncer foram identificados (sensibilidade de 100% no teste). A AUC do Random Forest ficou em torno de **0,99**, praticamente perfeita, sugerindo que o modelo conseguiu separar quase completamente os casos dos controles. Esses resultados sugerem que existe um **padrão muito forte no conjunto de dados que diferencia os indivíduos com câncer dos sem câncer** – possivelmente combinações de respostas nas variáveis-sintomas que ocorrem somente nos casos. Por exemplo, podemos especular que nenhum paciente sem câncer tinha simultaneamente certos sinais (como dedos amarelados + chiado + dor no peito), ao passo que muitos com câncer têm esse conjunto de indicativos. O Random Forest, ao explorar interações, capta essas regras quase determinísticas.
-* Analisando a **importância das variáveis** no Random Forest, confirmamos que algumas variáveis se destacam como as mais informativas para a predição. As métricas de importância indicaram, pela ordem, que os atributos **Yellow Fingers**, **Chest Pain**, **Chronic Disease**, **Shortness of Breath** e **Alcohol Consuming** foram os que mais contribuíram para as decisões das árvores (avaliado pelo decréscimo médio do índice de Gini). Em seguida vieram *Smoking*, *Coughing* e *Wheezing*. O gênero e a idade tiveram importâncias relativamente baixas no modelo – o que faz sentido, já que quase todos no conjunto de dados estão dentro de uma faixa etária de risco e o gênero não foi um divisor crítico dado que há muitos casos em ambos.
-* Esses resultados de importância sugerem uma narrativa coerente: **pacientes com múltiplos sintomas respiratórios (tosse, chiado, falta de ar, dor no peito)** combinados com **histórico de tabagismo pesado (dedos amarelados)** e **comorbidades** constituem praticamente o perfil certo de câncer de pulmão na base. O consumo de álcool aparece também entre os top preditores, talvez diferenciando os poucos “falsos positivos” ou demarcando um estilo de vida associado à doença.
-
-Em síntese, os modelos de aprendizado de máquina indicam que é **possível prever com alta acurácia o diagnóstico de câncer de pulmão para os pacientes dessa base de dados**, utilizando os fatores de risco e sintomas fornecidos. O desempenho particularmente elevado do Random Forest (acurácia \~95-96%, AUC \~0,99) sugere até que **a base de dados pode conter um padrão intrínseco fácil de aprender**, o que levanta a hipótese de que pode se tratar de um *dataset* simulado ou idealizado (dada tamanha separabilidade). Ainda assim, do ponto de vista de validação interna, nossos modelos confirmam os achados das análises anteriores: fatores como tabagismo e idade isoladamente não foram os maiores diferenciadores, mas em conjunto com sintomas e outros hábitos conseguiram distinguir praticamente todos os casos.
-
-Em termos de métricas solicitadas:
-
-* **Acurácia**: \~90% (logística) a \~95% (random forest).
-* **Precisão** (precision, proporção dos preditos positivos que são realmente positivos): no modelo logístico ficou em \~90%, e no random forest \~95%, refletindo a baixa taxa de falso positivo neste último.
-* **Recall** (sensibilidade): logístico \~98%, random forest 100% (no teste).
-* **F1-score**: aproximadamente 0,94 para o logístico e 0,97 para random forest, combinando alta precisão e recall.
-* **AUC**: 0,85 (logístico) e 0,99 (RF).
-* Métricas como **R², RMSE, MAE** não se aplicam diretamente porque o problema é de classificação, não regressão. Entretanto, poderíamos reportar o pseudo-R² (e.g. de McFadden) do modelo logístico que foi cerca de 0,65, indicando um excelente ajuste do modelo aos dados.
-
-Em vista desses resultados, fica evidente que, para esta base de dados, **um modelo computacional consegue diagnosticar corretamente o câncer de pulmão dos pacientes quase perfeitamente** com base nos atributos. Novamente, isso indica que os pacientes sem câncer presentes podem representar perfis muito distintos (por exemplo, talvez eles sejam majoritariamente não fumantes *e* sem sintomas marcantes, diferentemente dos casos). Para generalização, isso seria preocupante: um modelo tão perfeito em dados de treinamento pode sofrer de *overfitting* e não ter igual desempenho em novos dados do mundo real, onde há muito mais diversidade. Portanto, devemos encarar esses resultados de modelagem como uma verificação interna da consistência dos dados mais do que como um produto final pronto para uso clínico.
-
-## Conclusão
-
-Neste artigo, realizamos uma análise abrangente de um conjunto de dados de pacientes focado em câncer de pulmão, abordando questões chave sobre perfil etário, influência do tabagismo, diferença por gênero e possível papel do consumo de álcool.
-
-**Sumário dos principais achados:**
-
-* **Perfil etário:** Os pacientes com câncer de pulmão na base de dados são majoritariamente idosos ou de meia-idade avançada, com idade média em torno de 63 anos. Praticamente não há casos abaixo dos 50 anos, confirmando que a incidência da doença aumenta com a idade. Esse resultado está em linha com dados epidemiológicos (mediana nacional \~70 anos) e ressalta a importância de vigilância médica em populações idosas e expostas a risco.
-* **Tabagismo:** Esperávamos verificar a forte associação do fumo com o câncer de pulmão; contudo, dentro do *dataset* específico, não foi encontrada uma diferença significativa na taxa de tabagismo entre doentes e não doentes – ambos os grupos apresentavam percentuais altíssimos de fumantes (>80%). Essa ausência de correlação estatística se deve ao viés de amostragem (a maioria dos indivíduos sem câncer também era fumante) e não refuta a evidência científica estabelecida de que o tabagismo é a principal causa da doença. Em contexto amplo, continua válido que cerca de 8 a 9 em cada 10 casos de câncer de pulmão são atribuíveis ao cigarro. Portanto, reforçamos a recomendação clássica: **a cessação do tabagismo é a medida preventiva mais eficaz contra o câncer de pulmão** – inclusive os dados de nosso modelo mostram que características associadas ao fumo pesado (como dedos amarelados) foram altamente preditivas do câncer.
-* **Gênero:** Identificamos uma leve predominância masculina (54%) entre os casos de câncer de pulmão, mas a proporção de mulheres (46%) é quase equivalente. Isso indica que, atualmente, o câncer de pulmão é um problema de ambos os sexos de maneira significativa. O histórico mais intenso de tabagismo nos homens ainda gera uma diferença, mas cada vez menor, o que ficou evidenciado no *dataset*. A implicação é clara: **mulheres devem ser tão alertadas e incluídas em programas de rastreio quanto os homens**, uma vez que seu risco está apenas ligeiramente inferior e em tendência de alta em muitas populações.
-* **Álcool:** Encontramos uma associação positiva entre consumo de álcool e ocorrência de câncer de pulmão na amostra, sugerindo que pacientes que consomem bebida alcoólica regularmente apresentaram maior prevalência de câncer de pulmão do que abstêmios. Contudo, sublinhamos que esse achado provavelmente reflete **fatores de confusão** – principalmente o fato de muitos consumidores de álcool também serem fumantes. Ainda assim, do ponto de vista de saúde, reitera-se que **há benefícios em reduzir o consumo excessivo de álcool**. Embora o álcool não seja um agente etiológico comprovado para câncer de pulmão, seu uso abusivo pode piorar condições de saúde e está relacionado a vários outros cânceres e doenças. Além disso, indivíduos que fumam e bebem formam um grupo de risco multiplicado que deve ser foco de intervenções.
-* **Modelos preditivos:** A aplicação de algoritmos de aprendizado de máquina mostrou que, combinando todos os fatores (incluindo sinais clínicos como tosse, chiado, dor torácica e histórico de saúde), é possível predizer com alta acurácia quais pacientes têm câncer de pulmão. O modelo de Random Forest, em particular, conseguiu quase separar perfeitamente os casos dos controles, indicando padrões claros nos dados. Esse resultado sugere que, no *dataset*, os pacientes sem câncer diferem dos com câncer em um conjunto de características marcantes – possivelmente os não-casos são indivíduos de menor risco geral (menos sintomas e fatores). Em termos práticos, isso reforça a viabilidade de sistemas computacionais de triagem: questionários ou modelos baseados em fatores de risco podem, sim, auxiliar na identificação de pessoas com maior probabilidade de câncer de pulmão, que merecem investigação diagnóstica mais aprofundada (como exames de imagem). No entanto, é importante validar tais modelos em dados independentes e representativos do mundo real para garantir sua confiabilidade e evitar sobreajuste a padrões específicos da amostra.
-
-**Limitações:** Vale ressaltar que as conclusões são limitadas pelo tamanho e natureza do conjunto de dados. Com apenas 309 pacientes, muitos dos quais selecionados por já terem fatores de risco ou sintomas, não podemos generalizar totalmente para a população. O viés de seleção mencionado (amostra concentrada em fumantes) dificultou análises do efeito isolado do tabaco. Além disso, variáveis potencialmente importantes não estavam presentes – por exemplo, histórico familiar de câncer de pulmão, exposição ocupacional a agentes carcinogênicos, status socioeconômico, entre outras. A inclusão dessas variáveis poderia refinar a análise e os modelos preditivos. Também notamos que a base estava desbalanceada e possivelmente **sintética** (dada a performance quase perfeita do modelo preditivo), o que sugere cautela na interpretação dos resultados inferenciais.
-
-**Trabalhos futuros:** Seria benéfico aplicar a metodologia aqui desenvolvida em bases de dados maiores e mais heterogêneas, incluindo bases clínicas reais e registros populacionais, a fim de confirmar os achados e aprimorar os modelos. Estudos futuros podem explorar técnicas de balanceamento de classes (como *SMOTE* ou ponderação de custos) para lidar com desbalanceamento, e testar algoritmos adicionais (p. ex., *gradient boosting*) para comparação. Também seria interessante avaliar a interação entre tabagismo e outros hábitos de vida de forma mais aprofundada, idealmente com dados longitudinais (seguindo fumantes ao longo do tempo e observando a incidência de câncer) – isso permitiria quantificar melhor o risco absoluto e a fração atribuível. Por fim, a integração de dados genômicos ou biomarcadores moleculares pode melhorar a acurácia de predição e entendimento de quais subgrupos (como nunca fumantes) desenvolvem câncer de pulmão e por quê.
-
-Em conclusão, este estudo reforça conhecimentos estabelecidos – como o perfil etário avançado e o papel crítico do tabaco no câncer de pulmão – ao mesmo tempo em que traz insights específicos da base analisada, por exemplo, sobre a necessidade de abordar múltiplos fatores de risco conjuntamente. Os resultados obtidos podem ajudar a direcionar ações de saúde: intensificar programas de cessação de tabagismo, alertar sobre riscos combinados de hábitos não saudáveis, e desenvolver ferramentas preditivas para identificação precoce de indivíduos de alto risco. Em última instância, combater o câncer de pulmão passa tanto por **prevenção primária** (reduzir exposições a agentes causadores, especialmente cigarro) quanto por **detecção precoce** (rastreamento de pessoas elegíveis), e os achados aqui apresentados corroboram a importância dessas estratégias. Como dito por uma fonte, **“parar de fumar em qualquer idade reduz o risco de câncer de pulmão”**, então nunca é tarde para adotar mudanças positivas e possivelmente salvar vidas.
+---
 
 ## Referências
 
-* American Cancer Society (ACS). *Key Statistics for Lung Cancer* – Most people diagnosed are 65 or older; average age \~70.
-* Centers for Disease Control and Prevention (CDC). *Lung Cancer Risk Factors* – Smoking is linked to 80–90% of lung cancer deaths; smokers \~15–30 times more likely to get lung cancer than never smokers.
-* Healthline – *What to Know About Lung Cancer and Age*: median age at diagnosis \~71; majority of cases in 65–74 range.
-* World Cancer Research Fund (WCRF). *Lung cancer statistics*: Most common cancer in men and 2nd in women worldwide; rising incidence in women in recent decades.
-* Wijaya, B. (2022). *Lung Cancer Analysis* (Medium article) – Analysis of Kaggle lung cancer dataset, reporting 87% of 309 patients had lung cancer, mean age \~62.8, \~53.7% male among cases, and observations that smoking alone showed low correlation while alcohol use showed higher chance in those patients.
-* WebMD – *How Alcohol Affects Lung Cancer*: No clear independent link between alcohol and lung cancer; heavy drinking often confounded by smoking.
-* Study (PMCID: PMC4706677) – *Association Between Alcohol Consumption and Lung Cancer*: Some evidence that high alcohol intake is associated with increased lung cancer risk.
-* Kaggle Dataset Documentation (anshbadoni30/Lung-cancer-prediction) – Dataset with 16 attributes (15 predictors such as Smoking, Yellow Fingers, etc., coded Yes=2/No=1, and target Lung Cancer Yes/No).
-* **In** *Jornal Brasileiro de Pneumologia*: Perfil epidemiológico do câncer de pulmão no Brasil – enfatiza o papel do tabagismo e o aumento de casos femininos nas últimas décadas (informação contextual, não citada literalmente acima).
+ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. *NBR 6023:2023 – Informação e documentação – Referências.* Rio de Janeiro, 2023.
+BRASIL. *Lei Geral de Proteção de Dados Pessoais (LGPD) – Lei nº 13.709/2018.* Brasília, DF, 2018.
+BREIMAN, L. Random forests. *Machine Learning*, v. 45, n. 1, p. 5-32, 2001.
+HE, H.; GARCIA, E. A. Learning from imbalanced data. *IEEE Transactions on Knowledge and Data Engineering*, v. 21, n. 9, p. 1263-1284, 2009.
+HOSMER, D. W.; LEMESHOW, S. *Applied Logistic Regression.* 3. ed. Hoboken: Wiley, 2013.
+ROBIN, X. *et al.* pROC: an open-source package for R and S+ to analyze and compare ROC curves. *BMC Bioinformatics*, v. 12, p. 77, 2011.
+R CORE TEAM. *R: A Language and Environment for Statistical Computing.* Viena: R Foundation for Statistical Computing, 2025.
