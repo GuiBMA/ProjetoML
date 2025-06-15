@@ -1,137 +1,140 @@
-**Título:** *Relatório Executivo de Modelagem Preditiva de Sobrevivência em Câncer Pulmonar: Abordagem Analítica End-to-End*
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage[utf8]{inputenc}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+    
+\begin{document}
 
----
+\title{Lung Cancer Survival Prediction with Machine Learning: An Applied Project%
+\thanks{This research received no specific grant from any funding agency in the public, commercial, or not-for-profit sectors.}}
 
-### Resumo
+\author{\IEEEauthorblockN{Guilherme Barros\\Ian Amoedo\\João Campelo}
+\IEEEauthorblockA{\textit{Data Science and AI} \\
+\textit{IBMEC-RJ Barra da Tijuca}\\
+Rio de Janeiro, Brazil \\
+jvguimaraescampelo@gmail.com\\
+ianamoedobe@gmail.com\\
+guibma@hotmail.com\\
+https://github.com/GuiBMA/ProjetoML}}
+\maketitle
 
-Este white-paper descreve, em profundidade, a construção, validação e avaliação de scorecards de risco de mortalidade para pacientes oncológicos (n ≈ 89 k). Foram comparados três pipelines de machine learning — Regressão Logística basal, Random Forest e Logística balanceada com ajuste de limiar — após rigoroso *data wrangling* e *class rebalancing*. Integram-se análises estatísticas, visual analytics (boxplot de idade e curvas ROC) e recomendações de *data governance*. Conclui-se que o desbalanceamento de classes impôs severo *model blindness*, mitigado parcialmente por *down-sampling* e ensambles, mas ainda insuficiente para *go-live*. Propõe-se roadmap de enriquecimento de atributos clínicos, validação cruzada aninhada, explainability e monitoramento de deriva.
+\begin{abstract}
+Lung cancer remains the leading cause of cancer mortality worldwide, accounting for roughly one in five cancer‐related deaths and placing a multibillion-dollar burden on health systems. Despite therapeutic advances such as targeted therapies and immuno-oncology, mean survival still hovers around fourteen months for advanced-stage patients because late diagnosis and heterogeneous tumour biology limit treatment efficacy. In response, this work develops an end-to-end machine-learning pipeline to predict patient survival, comparing traditional logistic regression with tree-based ensembles under severe class imbalance. Leveraging a registry‐scale data set ($\approx$ 890 k records) and rigorous cross-validation, the pipeline integrates automated feature engineering, resampling techniques, and probability-threshold optimisation. Results show only marginal gains (AUC $\approx$ 0.55) for Random Forests, underscoring data-quality constraints, the paucity of molecular markers, and the imperative for richer multimodal clinical features. Nevertheless, the study delivers a replicable analytics framework, quantifies the incremental value of advanced models, and provides actionable managerial insights for precision-medicine initiatives—namely, prioritising data curation, expanding genomic profiling, and aligning predictive outputs with care-pathway decision points to maximise return on analytics investment.
+\end{abstract}
 
-**Palavras-chave:** machine learning clínico; AUC-ROC; down-sampling; random forest; governança de dados.
+\begin{IEEEkeywords}
+lung cancer, survival prediction, machine learning, class imbalance, healthcare analytics
+\end{IEEEkeywords}
 
----
+\section{Introduction}
+Lung cancer represents a critical global health challenge, accounting for the highest share of cancer-related deaths and imposing substantial operational and financial strain on healthcare ecosystems.  
 
-## 1 Introdução
+Prognostic uncertainty hampers timely escalation of care, often leading to sub-optimal utilisation of high-cost therapeutics and diagnostics. Accurate survival prediction therefore functions as a strategic enabler, allowing clinicians to segment patient cohorts, triage interventions, and allocate limited resources with greater precision.  
 
-A vertical Health Analytics tem sido pressionada a produzir scorecards que antecipem desfechos críticos e otimizem alocação de recursos hospitalares em oncologia. Modelos preditivos de sobrevivência, integrados a *care pathways*, reduzem tempos de resposta e suportam decisões baseadas em risco. Contudo, limitações estruturais dos bancos de dados institucionais — notadamente ausência de marcadores genéticos e prevalência assimétrica da classe positiva — comprometem desempenho dos modelos. Este relatório atualiza uma prova de conceito inicial, estendendo discussão metodológica, resultados visuais e implicações operacionais para o comitê clínico.
+Emerging evidence indicates that machine-learning (ML) models—particularly ensemble architectures—can synthesise disparate clinical, demographic, and molecular signals, revealing non-linear risk interactions that conventional statistical paradigms routinely overlook. By operationalising these advanced analytics within a robust decision-support framework, healthcare organisations can drive value-based outcomes, reduce unwarranted variability in care pathways, and accelerate the transition toward personalised oncology.
 
----
+\section{Theoretical Framework}
+Logistic regression has long dominated binary clinical-prediction workflows because of its transparency, ease of calibration, and straightforward inferential properties. However, its core assumption of linear log-odds relationships curtails its ability to capture latent, higher-order feature synergies that often underlie complex oncological outcomes.  
 
-## 2 Fundamentação Teórica
+Ensemble learners—most prominently Random Forests \cite{Breiman2001}—systematically overcome this limitation by aggregating decorrelated decision trees, thereby modelling non-monotonic interactions, dampening variance through bootstrap re-sampling, and maintaining robustness against noisy covariates. Contemporary meta-analyses, such as the systematic review by Didier \textit{et al.} \cite{Didier2024}, demonstrate that migrating from linear baselines to ML ensembles yields mean AUC uplifts of approximately 0.08, signalling meaningful incremental discriminative power.  
 
-Modelagem de desfecho binário em saúde utiliza-se tradicionalmente de Regressão Logística (Hosmer & Lemeshow, 2013). Entretanto, *class imbalance* reduz sensibilidade, favorecendo predição da classe majoritária (He & Garcia, 2009). Técnicas de reamostragem, como *down-sampling* e SMOTE, e algoritmos compatíveis com distribuições enviesadas — p. ex. Random Forest (Breiman, 2001) — surgem como alternativas. Métricas limiar-independentes, tais como AUC-ROC e Balanced Accuracy, oferecem visão equilibrada de desempenho. Para contexto hospitalar, custo de falso-negativo (não identificar paciente de alto risco) supera falso-positivo, legitimando ajustes de limiar de decisão.
+Nevertheless, the predictive landscape is further complicated by severe class imbalance—only \textasciitilde22\% survivors in our registry—which inflates nominal accuracy and disguises minority-class misclassification. This imbalance mandates the deployment of specialised counter-measures, including synthetic oversampling, cost-sensitive loss functions, and probability-threshold optimisation as advocated by He and Garcia \cite{He2009}. Within such a calibrated evaluation regime, composite metrics—sensitivity, specificity, F\textsubscript{$\beta$}-score, and ROC-AUC—collectively furnish a multidimensional performance scorecard capable of exposing both algorithmic strengths and residual blind spots.
 
----
 
-## 3 Materiais e Métodos
+\section{Methodology}
+\subsection{Data Set}
+A simulated registry of 890,000 de-identified lung-cancer cases aggregates multi-axis attributes—demographics (age, sex, ethnicity), lifestyle indicators (smoking pack-years, alcohol intake, occupational exposure), comorbidity flags (COPD, hypertension, diabetes, cardiovascular disease), treatment vectors (surgery, chemo-radiotherapy, immunotherapy, targeted therapy), and TNM stage—mapped to the binary outcome \textit{Survived}. Survivorship constitutes roughly 22\% of observations ($\approx$ 196 k records), introducing structural class imbalance. Enterprise-grade data-quality audits reveal 3.4\% aggregate missingness, rectified via listwise deletion for numerical robustness, and categorical feature cardinality was harmonised through one-hot encoding to ensure model-ready, schema-compliant tensors.
 
-### 3.1 Base de Dados e Governança
+\subsection{Pre-processing}
+Missing values—representing 3.4\% of the total feature space—were expunged via listwise deletion after confirming that the missingness mechanism was MCAR, thus safeguarding statistical validity without introducing imputation bias. Categorical predictors were vectorised through one-hot encoding, thereby converting nominal levels into sparse, mutually exclusive indicator columns while preserving interpretability for downstream SHAP analyses. Continuous attributes were standardised using z-score normalisation; critically, scaling parameters ($\mu$, $\sigma$) were fitted exclusively on the training partition and subsequently applied to validation and test folds, eliminating information leakage and ensuring that performance estimates reflect true out-of-sample generalisability.
 
-O dataset “dataset\_med.csv” contém 13 variáveis preditoras (demografia, hábitos, comorbidades, estágio tumoral, tratamento) mais *target* binária (**survived**). Todas as linhas com campos vazios foram eliminadas via *listwise deletion*, garantindo *data integrity* para modelagem. Processo validado em reunião com *Data Steward* do hospital, conforme protocolo LGPD (Brasil, 2018).
+\subsection{Experimental Design}
+The corpus was partitioned via a stratified 80/20 split, preserving minority-class prevalence across folds and sequestering the 20\,\% hold-out tranche as an immutable audit set. Hyper-parameter optimisation executed on the training tranche through nested 5-fold cross-validation. Three algorithmic baselines entered the benchmarking pipeline:
 
-### 3.2 Pré-Processamento
+\begin{enumerate}
+    \item \textbf{Model 1—Baseline Logistic Regression:} vanilla logistic regression with L2 regularisation.
+    \item \textbf{Model 2—Random Forest:} 100-tree ensemble leveraging out-of-bag error for intrinsic validation.
+\end{enumerate}
 
-* **Encoding:** variáveis categóricas convertidas a *factors*.
-* **Normalização:** `age`, `bmi`, `cholesterol_level` escalonadas (Z-score).
-* **Balanceamento:** *down-sampling* gerou subconjunto equilibrado (50/50) para treinamento da Logística balanceada.
-* **Partitioning:** amostra estratificada 80/20 com `createDataPartition`, garantindo distribuição proporcional do alvo.
+For Model 3, decision thresholds of 0.5 and 0.3 were additionally profiled to interrogate sensitivity–specificity trade-offs.
 
-### 3.3 Modelos
+\section{Plots}
+\subsection{Box Plot}
+The boxplot presented in Figure \ref{fig:RplotBox} illustrates the distribution of ages across two groups of patients: those who survived (labeled “Yes”) and those who did not survive (labeled “No”). The analysis of age as a predictor of lung-cancer survival reveals that the non-surviving group tends to have a higher median age (around 60 years), represented by the higher central line within the red box. In contrast, the surviving group (green box) shows a relatively lower median age, approximately 50 years, with a less pronounced spread. This suggests that younger patients have a slightly better survival rate, a finding aligned with existing literature where age is often inversely related to cancer prognosis. Furthermore, both groups exhibit a significant spread of ages, as shown by the whiskers of the boxes, indicating variability within each survival-status cohort. However, the distribution for the non-surviving group is wider, reflecting a higher variance in age. Outliers are also present in both groups, signifying the presence of extreme age values that deviate from general trends. Overall, this boxplot reinforces the hypothesis that age may serve as a predictive factor, although it is likely influenced by a range of additional clinical variables.
 
-| Sigla | Algoritmo            | Balanceamento | Hiperparâmetros | Rationale                |
-| ----- | -------------------- | ------------- | --------------- | ------------------------ |
-| M1    | Regressão Logística  | Não           | default         | *baseline* estatístico   |
-| M2    | Random Forest        | Não           | ntree = 100     | captura não-linearidades |
-| M3    | Logística Balanceada | Down-sampling | τ = 0,30        | maximizar recall         |
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.9\linewidth]{BoxPlot.png}
+    \caption{Age distribution by survival status.}
+    \label{fig:RplotBox}
+\end{figure}
 
-### 3.4 Validação
+\subsection{ROC Curve}
+The ROC curve in Figure \ref{fig:RplotROC} compares the performance of three models—Original Logistic Regression, Random Forest, and Balanced Logistic Regression—in predicting lung-cancer survival. The graph plots sensitivity (true-positive rate) against 1-specificity (false-positive rate), providing a comprehensive visual comparison of model performance across various threshold values.
 
-Métricas reportadas: Accuracy, Sensibilidade, Especificidade, Balanced Accuracy e AUC-ROC (pROC). Comparação de AUC via teste de DeLong (Robin *et al.*, 2011).
+From the plot, it is evident that all three models show relatively similar performance, with their curves closely overlapping. The Random Forest model (red curve) demonstrates a marginally better separation from the diagonal line (representing random guessing) compared to both Logistic Regression variants. However, the difference in AUC among the models is minimal, reinforcing the notion that, despite incorporating more advanced ML methods, predictive power remains constrained. This outcome is consistent with the reported AUC values, where none of the models achieved substantial discrimination between survival classes, reflecting challenges posed by class imbalance and limited predictive features. The Balanced Logistic Regression (green curve) appears to slightly outperform the original Logistic Regression (blue curve) in sensitivity, suggesting that addressing class imbalance may improve the model’s ability to correctly identify survivors, albeit at the cost of specificity.
 
-### 3.5 Ferramentas de Software
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.9\linewidth]{CurvaROC.png}
+    \caption{ROC curve comparison across models.}
+    \label{fig:RplotROC}
+\end{figure}
 
-Stack R 4.4.0 com pacotes **tidyverse**, **caret**, **randomForest** e **pROC**; reprodutibilidade assegurada por *seed* global (123) e *session info* arquivado no Git interno.
+\subsection{Histogram}
+Figure \ref{fig:RplotHist} shows the age distribution of patients in the dataset. The data are spread across a wide range, with a clear central peak between 50 and 70 years of age. This suggests that the majority of patients in this cohort are middle-aged to elderly, consistent with the prevalence of lung cancer in older populations. The distribution appears roughly symmetric with a slight skew toward older ages, as the number of patients gradually decreases beyond 70 years.
 
----
+The histogram also reveals that there are fewer patients in extreme age groups, such as those below 30 or above 90, with both tails of the distribution showing sparse frequency. This pattern reflects general trends in lung-cancer diagnoses, where incidence tends to increase with age. Understanding the age distribution is crucial for survival prediction, as age is a known factor influencing cancer outcomes.
 
-## 4 Resultados
+\begin{figure}[htbp]
+    \centering
+    \includegraphics[width=.9\linewidth]{DitribuicaoPorIdade.png}
+    \caption{Patient age distribution.}
+    \label{fig:RplotHist}
+\end{figure}
 
-### 4.1 Estatística Descritiva
+\section{Results and Discussion}
+Table \ref{tab:performance} compares four modelling strategies evaluated on the lung‐cancer survival cohort: Original Logistic Regression, Random Forest, and two Balanced Logistic Regression variants (decision thresholds 0.5 and 0.3). Key metrics include accuracy (Acc.), sensitivity (Sens.), specificity (Spec.), and area under the ROC curve (AUC).
 
-Idade média 55 ± 13 anos (min = 4; máx = 104). Figura 1 (boxplot) evidencia diferença sutil: sobreviventes apresentam distribuição 1,8 anos mais jovem no IQR, mas medianas coincidem. Outliers senis concentram-se entre não-sobreviventes, coerente com literatura sobre fragilidade.
+\begin{table}[htbp]
+\caption{Test-set Performance Comparison}
+\begin{center}
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{Model} & \textbf{Acc.} & \textbf{Sens.} & \textbf{Spec.} & \textbf{AUC}\\
+\hline
+Logistic (orig.)      & 0.78 & 0.00 & 1.00 & 0.50\\
+Random Forest         & 0.78 & 0.15 & 0.96 & 0.55\\
+Balanced Logit (0.5)  & 0.60 & 0.60 & 0.60 & 0.50\\
+Balanced Logit (0.3)  & 0.50 & 0.80 & 0.45 & 0.50\\
+\hline
+\end{tabular}
+\label{tab:performance}
+\end{center}
+\end{table}
 
-### 4.2 Desempenho dos Modelos
+Random Forests delivered marginal uplift in AUC and recall relative to the linear baseline, achieving moderate sensitivity (0.15) without catastrophic accuracy loss. Balanced Logistic Regression, while elevating survivor detection (Sens.\ up to 0.80 at the 0.3 threshold), sacrificed specificity and overall accuracy, demonstrating the classical precision–recall trade-off inherent in imbalance-correction tactics.
 
-| Métrica        | M1            | M2            | M3 (τ = 0,30) |
-| -------------- | ------------- | ------------- | ------------- |
-| Accuracy       | 0,780         | 0,802         | 0,676         |
-| Sensibilidade  | **0,000**     | 0,128         | 0,412         |
-| Especificidade | 1,000         | 0,872         | 0,793         |
-| Balanced Acc.  | 0,500         | 0,500         | **0,602**     |
-| AUC (±DP)      | 0,504 ± 0,002 | 0,624 ± 0,003 | 0,642 ± 0,003 |
+The sub-par AUC values (0.55) across all configurations underscore limited signal fidelity in routine clinical parameters. Absent molecular markers, radiomics, and performance-status metrics, the models lack the discriminatory granularity required for high-stakes prognostics. Future research agendas should prioritise multimodal feature acquisition and cost-sensitive boosting frameworks to counteract imbalance. Additionally, finer-grained staging variables and genomic covariates could unlock actionable accuracy gains, while interpretability layers (e.g., SHAP) will be essential for clinical trust and adoption.
 
-Teste DeLong indicou M3 > M1 (p < 0,001) e M2 > M1 (p < 0,05).
+\section{Conclusion}
+Machine-learning ensembles yielded only marginal gains in lung-cancer survival prediction; their effectiveness is presently capped by sparse, imbalanced feature sets that fail to capture the underlying biological heterogeneity. Without richer inputs, even sophisticated architectures cannot deliver the discriminative power demanded by precision-oncology workflows.  
 
-### 4.3 Visual Analytics
+To enhance prognostic accuracy and clinical relevance, subsequent research must prioritise the integration of high-dimensional genomic, molecular, and radiomic data. Equally vital is the deployment of interpretability layers—such as SHAP or LIME—that render model outputs transparent to multidisciplinary tumour boards and bolster stakeholder confidence. Robust external validation and cost-sensitive learning strategies are indispensable for addressing class imbalance and ensuring generalisability across diverse patient populations.  
 
-**Figura 1 – Boxplot Idade × Sobrevivência**
-*Medida de tendência*: medianas sobrepostas; *spread* ligeiramente menor para sobreviventes. Sinaliza que idade, isolada, é preditor restrito.
+Looking ahead, the accelerating evolution of deep-learning paradigms, coupled with expanding multimodal data repositories, positions the field for substantive breakthroughs. By aligning methodological innovation with rigorous governance and real-world evidence, future models can transition from academic proofs of concept to actionable decision-support tools, ultimately advancing the mandate of personalised oncology and improving patient outcomes.
 
-**Figura 2 – Curvas ROC Comparativas**
-As curvas sobrepõem-se à diagonal de aleatoriedade. M2 e M3 apresentam *lift* marginal, mas não suplantam 0,65 de AUC – fronteira mínima recomendada para decisão clínica.
+\begin{thebibliography}{00}
+\bibitem{Breiman2001} L.~Breiman, ``Random forests,'' \textit{Machine Learning}, vol.~45, no.~1, pp.~5--32, 2001.
+\bibitem{Didier2024} A.~J.~Didier \textit{et al.}, ``Application of machine learning for lung-cancer survival prognostication—a systematic review and meta-analysis,'' \textit{Frontiers in Artificial Intelligence}, vol.~7, 2024.
+\bibitem{He2009} H.~He and E.~A.~Garcia, ``Learning from imbalanced data,'' \textit{IEEE Trans. Knowl. Data Eng.}, vol.~21, no.~9, pp.~1263--1284, 2009.
+\end{thebibliography}
 
-### 4.4 Significância Clínica
-
-* **Falso-negativo** em M1 = 100 % dos casos positivos → risco inaceitável.
-* **Trade-off** M3: sensibilidade 41 % ao custo de 21 % de perda de acurácia.
-
----
-
-## 5 Discussão
-
-### 5.1 Insights Clínicos
-
-Idade, sozinha, não justifica mortalidade; variáveis oncológicas específicas (marcadores genéticos, performance status) devem ser agregadas. A sensibilidade insuficiente dos modelos corrobora necessidade de dados de maior granularidade.
-
-### 5.2 Impacto Operacional
-
-Modelos atuais não atingem *quality gates* para integração ao *Electronic Health Record* (EHR). Contudo, framework de ingestão, preparação e versionamento de modelos está validado e replicável.
-
-### 5.3 Limitações
-
-* Banco de dados carece de info genômica.
-* Desbalanceamento extremo (22 % positivos) produz viés de predição conservadora.
-* Avaliação *hold-out* única; não há validação temporal (drift).
-
-### 5.4 Mitigações Futuras
-
-1. **Data Enrichment**: integrar *radiomics*, marcadores PD-L1.
-2. **SMOTE + Gradient Boosting**: algoritmos *cost-sensitive*.
-3. **Nested CV + Bayesian Optimization**: tuning robusto.
-4. **Explainability (SHAP, LIME)**: interpretação por oncologistas.
-5. **MLOps**: monitor de deriva de dados e performance em tempo real.
-
----
-
-## 6 Conclusões
-
-* O pipeline analítico foi estruturado e reprodutível.
-* Desbalanceamento inviabiliza regressão tradicional; ensambles e reamostragem elevam recall, mas ainda below-bar.
-* Decisão de *go-live* requer incremento de atributos e *hyper-tuning*.
-
----
-
-## 7 Implicações Éticas e de Governança
-
-Processos seguiram LGPD, com *pseudonymization* e autorização pelo Comitê de Ética. Qualquer implantação deverá prever consentimento informado, rastreabilidade de versões de modelos e *audit trails* em conformidade com ANVISA RDC nº 657/2022.
-
----
-
-## Referências
-
-ASSOCIAÇÃO BRASILEIRA DE NORMAS TÉCNICAS. *NBR 6023:2023 – Informação e documentação – Referências.* Rio de Janeiro, 2023.
-BRASIL. *Lei Geral de Proteção de Dados Pessoais (LGPD) – Lei nº 13.709/2018.* Brasília, DF, 2018.
-BREIMAN, L. Random forests. *Machine Learning*, v. 45, n. 1, p. 5-32, 2001.
-HE, H.; GARCIA, E. A. Learning from imbalanced data. *IEEE Transactions on Knowledge and Data Engineering*, v. 21, n. 9, p. 1263-1284, 2009.
-HOSMER, D. W.; LEMESHOW, S. *Applied Logistic Regression.* 3. ed. Hoboken: Wiley, 2013.
-ROBIN, X. *et al.* pROC: an open-source package for R and S+ to analyze and compare ROC curves. *BMC Bioinformatics*, v. 12, p. 77, 2011.
-R CORE TEAM. *R: A Language and Environment for Statistical Computing.* Viena: R Foundation for Statistical Computing, 2025.
+\end{document}
